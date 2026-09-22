@@ -1,0 +1,11 @@
+# Keep line endings stable for contributors on Windows.
+*           text=auto eol=lf
+*.png       binary
+*.zip       binary
+*.a         binary
+*.xcframework/** binary
+
+# Collapse vendored files in diffs and language statistics.
+Sources/CLexActivator/include/LexActivator.h    linguist-vendored=true
+Sources/CLexActivator/include/LexStatusCodes.h  linguist-vendored=true
+Sources/CLexActivator/include/LexTypes.h        linguist-vendored=true

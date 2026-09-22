@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Licensing or account support
+    url: https://cryptlex.com/contact
+    about: Questions about licenses, activations or your Cryptlex account.
+  - name: LexActivator documentation
+    url: https://docs.cryptlex.com
+    about: Reference for the underlying licensing API.
