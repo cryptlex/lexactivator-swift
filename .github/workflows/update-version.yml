@@ -1,0 +1,49 @@
+name: Update version
+
+on:
+  workflow_dispatch:
+    inputs:
+      libraryVersion:
+        description: 'LexActivator version, e.g. 3.45.0'
+        required: true
+        default: ''
+      packageVersion:
+        description: 'Package version to release as (the git tag), e.g. 3.45.0'
+        required: true
+        default: ''
+
+jobs:
+  update-version:
+    name: Update to a new LexActivator version
+    runs-on: macos-14
+    env:
+      LIBRARY_VERSION: ${{ inputs.libraryVersion }}
+      PACKAGE_VERSION: ${{ inputs.packageVersion }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # Records the library version in Scripts/download-libs.sh, downloads the
+      # native libraries, builds the xcframework and pins its checksum and the
+      # package version into Package.swift. Nothing else is touched: the C
+      # headers, LexActivatorError.swift and THIRD-PARTY-NOTICES.txt are
+      # maintained by hand, in their own pull requests.
+      #
+      # The checksum is reproducible, so the publish workflow rebuilds the
+      # identical zip from this commit.
+      - name: Update to ${{ inputs.libraryVersion }}
+        run: Scripts/update-version.sh "$LIBRARY_VERSION" "$PACKAGE_VERSION"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: ci/${{ env.PACKAGE_VERSION }}/swift
+          title: "chore: bump to ${{ env.PACKAGE_VERSION }} (swift)"
+          commit-message: "chore: bump to ${{ env.PACKAGE_VERSION }} (swift)"
+          body: |
+            Automated bump to `${{ env.PACKAGE_VERSION }}`
+            (LexActivator `v${{ env.LIBRARY_VERSION }}`).
+          base: main
+          add-paths: |
+            Package.swift
+            Scripts/download-libs.sh

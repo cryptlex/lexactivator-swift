@@ -1,0 +1,79 @@
+name: Publish swift package
+
+on:
+  workflow_dispatch:
+
+# A Swift package is published by tagging a commit: SwiftPM resolves the tag
+# straight from git, so there is no registry to upload to. The one artifact is
+# the xcframework zip that the binaryTarget in Package.swift downloads by URL.
+#
+# That zip is not kept in the repository — every consumer clones this repo to
+# resolve the package, so a 5 MB binary per release would land in every
+# customer's checkout. It is built here instead, from the library version the
+# Update version workflow already pinned, and the build is reproducible: this
+# job refuses to publish unless it reproduces the checksum Package.swift
+# advertises. Nothing tracked is modified.
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Tag and publish
+    runs-on: macos-14
+    concurrency: publish-swift
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: main
+
+      # The tag is the package version from Package.swift; the xcframework is
+      # built from the library version in Scripts/download-libs.sh.
+      - name: Read the pinned versions
+        run: |
+          {
+            echo "VERSION=$(sed -n 's/^let packageVersion = "\(.*\)"/\1/p' Package.swift)"
+            echo "CHECKSUM=$(sed -n 's/^let nativeChecksum = "\(.*\)"/\1/p' Package.swift)"
+            echo "LIBRARY_VERSION=$(sed -n 's/^LEXACTIVATOR_VERSION="\(.*\)"/\1/p' Scripts/download-libs.sh)"
+          } >> "$GITHUB_ENV"
+
+      # A tag is permanent: consumers pinned to it resolve the asset through it,
+      # so it can never be moved. Fail before anything is created rather than
+      # after.
+      - name: Check the tag is free
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::v${VERSION} is already tagged — run the Update version workflow first"
+            exit 1
+          fi
+
+      - name: Build the release asset
+        run: |
+          Scripts/download-libs.sh
+          Scripts/build-xcframework.sh
+
+      - name: Check it reproduces the pinned checksum
+        run: |
+          BUILT="$(cat Artifacts/LexActivatorNative.xcframework.zip.checksum)"
+          if [ "$BUILT" != "$CHECKSUM" ]; then
+            echo "::error::checksum mismatch — Package.swift pins $CHECKSUM, this build produced $BUILT"
+            exit 1
+          fi
+
+      - name: Tag and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$VERSION" in *-*) PRERELEASE=--prerelease ;; *) PRERELEASE= ;; esac
+
+          gh release create "v${VERSION}" ${PRERELEASE} \
+            --target "$(git rev-parse HEAD)" \
+            --title "v${VERSION}" \
+            --notes "LexActivator ${LIBRARY_VERSION} for Swift. See the README for installation." \
+            Artifacts/LexActivatorNative.xcframework.zip
+
+      # Resolving the package from a throwaway project is the only check that
+      # proves the published checksum and asset URL actually work.
+      - name: Verify consumers can resolve the release
+        run: Scripts/verify-release.sh "${{ github.repository }}" "${VERSION}"

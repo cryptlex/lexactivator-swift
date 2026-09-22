@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Build products
+.build/
+.swiftpm/
+build/
+DerivedData/
+*.xcresult
+
+# The xcframework is a release asset rather than repository content: it is
+# rebuilt by Scripts/build-xcframework.sh and published with the tag, and
+# Package.swift downloads the published one.
+Artifacts/
+
+# A library does not pin its dependencies — the consuming app's resolution
+# wins, and the examples depend on this package by path.
+Package.resolved
+
+# Per-user Xcode state. Schemes are auto-created per user; the project itself
+# (project.pbxproj) is committed.
+xcuserdata/
+*.xcworkspace
+*.xcodeproj/project.xcworkspace/
+
+# Local credentials. The samples read the product data, product id and licence
+# key from the environment, so a local file holding them is easy to create by
+# accident — none of them belong in the repository.
+.env
+.env.*
+*.env
