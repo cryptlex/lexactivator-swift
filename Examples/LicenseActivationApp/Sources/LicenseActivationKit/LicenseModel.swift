@@ -40,14 +40,35 @@ public final class LicenseModel: ObservableObject, @unchecked Sendable {
 
         queue.async { [weak self] in
             guard let self else { return }
-            do {
-                try LexActivator.deactivateLicense()
-                self.finish(summary: "Not activated", activated: false, message: "Activation released.")
-            } catch let error as LexActivatorError {
-                self.finish(summary: "Not activated", activated: false, message: "Error code: \(error.code) \(error.message)")
-            } catch {
-                self.finish(summary: "Not activated", activated: false, message: "\(error)")
+            // A failed deactivation leaves the activation in place, so the
+            // displayed state must stay as it was.
+            let released = self.releaseActivation()
+            DispatchQueue.main.async {
+                if released {
+                    self.summary = "Not activated"
+                    self.isActivated = false
+                }
+                self.isBusy = false
             }
+        }
+    }
+
+    /// Deactivates this device and reports whether it actually happened.
+    ///
+    /// `deactivateLicense()` succeeds only when an activation exists; anything
+    /// else is an error the caller has to see, so it is logged rather than
+    /// discarded.
+    private func releaseActivation() -> Bool {
+        do {
+            try LexActivator.deactivateLicense()
+            append("Activation released.")
+            return true
+        } catch let error as LexActivatorError {
+            append("Failed to release the activation: error code \(error.code) \(error.message)")
+            return false
+        } catch {
+            append("Failed to release the activation: \(error)")
+            return false
         }
     }
 
@@ -154,15 +175,15 @@ public final class LicenseModel: ObservableObject, @unchecked Sendable {
 
     private func finish(summary: String, activated: Bool, message: String) {
         append(message)
-        DispatchQueue.main.async {
-            self.summary = summary
-            self.isActivated = activated
-            self.isBusy = false
-        }
 
-        if activated && Configuration.releasesActivationAfterwards {
-            try? LexActivator.deactivateLicense()
-            append("Activation released.")
+        // Unattended runs release the activation before publishing, so the
+        // state shown is the state the device is actually in.
+        let released = activated && Configuration.releasesActivationAfterwards && releaseActivation()
+
+        DispatchQueue.main.async {
+            self.summary = released ? "Not activated" : summary
+            self.isActivated = activated && !released
+            self.isBusy = false
         }
     }
 

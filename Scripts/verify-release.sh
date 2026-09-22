@@ -38,7 +38,7 @@ EOF
 cat > "$WORK/Sources/Consumer/main.swift" <<'EOF'
 import LexActivator
 
-let version = try LexActivator.libraryVersion()
+let version = try LexActivator.getLibraryVersion()
 print("Resolved LexActivator \(version)")
 guard !version.isEmpty else { fatalError("empty library version") }
 EOF

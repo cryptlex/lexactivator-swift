@@ -56,6 +56,11 @@ final class LiveLicenseTests: XCTestCase {
 
         XCTAssertEqual(try LexActivator.activateLicense(), .LA_OK)
 
+        // Release the activation however this test ends. Without the defer an
+        // assertion failure or a throw further down leaves the activation on
+        // the license, and repeated runs exhaust its allowed activations.
+        defer { XCTAssertNoThrow(try LexActivator.deactivateLicense()) }
+
         XCTAssertEqual(try LexActivator.isLicenseGenuine(), .LA_OK)
         XCTAssertEqual(try LexActivator.isLicenseValid(), .LA_OK)
         XCTAssertEqual(try LexActivator.syncLicenseActivation(), .LA_OK)
@@ -102,10 +107,6 @@ final class LiveLicenseTests: XCTestCase {
             concurrentFailures.isEmpty,
             "\(concurrentFailures.count)/\(iterations) concurrent reads failed: \(Set(concurrentFailures).prefix(3))"
         )
-
-        // Always release the activation so repeated runs do not exhaust the license.
-        try LexActivator.deactivateLicense()
-        LexActivator.removeLicenseCallback()
     }
 
     /// A key that does not exist must fail with a typed, matchable error.

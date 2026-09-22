@@ -25,7 +25,7 @@ let repository = "cryptlex/lexactivator-swift"
 // It normally equals the LexActivator version recorded in
 // Scripts/download-libs.sh, and only diverges when the package needs a release
 // of its own between two LexActivator versions.
-let packageVersion = "3.45.0"
+let packageVersion = "3.45.0-rc.1"
 
 // SHA-256 of the xcframework zip attached to that release. Both this and the
 // library version in Scripts/download-libs.sh are written by

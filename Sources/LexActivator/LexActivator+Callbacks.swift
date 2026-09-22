@@ -16,10 +16,17 @@ final class LicenseCallbackBox: @unchecked Sendable {
     private let lock = NSLock()
     private var handler: (@Sendable (LicenseCallbackResult) -> Void)?
 
-    func setHandler(_ handler: (@Sendable (LicenseCallbackResult) -> Void)?) {
+    /// Installs a handler and returns the one it replaced, so a caller that
+    /// fails to register on the native side can put the old one back.
+    @discardableResult
+    func setHandler(
+        _ handler: (@Sendable (LicenseCallbackResult) -> Void)?
+    ) -> (@Sendable (LicenseCallbackResult) -> Void)? {
         lock.lock()
         defer { lock.unlock() }
+        let previous = self.handler
         self.handler = handler
+        return previous
     }
 
     func invoke(code: Int32) {
@@ -78,15 +85,17 @@ extension LexActivator {
     public static func setLicenseCallback(
         _ callback: @escaping @Sendable (LicenseCallbackResult) -> Void
     ) throws {
-        LicenseCallbackBox.shared.setHandler(callback)
-        try Native.check(CLexActivator.SetLicenseCallback(licenseCallbackTrampoline))
-    }
-
-    /// Stops delivering server sync results to a previously registered closure.
-    ///
-    /// The native callback stays registered; it simply becomes a no-op, which
-    /// avoids any window where the library could call into a released closure.
-    public static func removeLicenseCallback() {
-        LicenseCallbackBox.shared.setHandler(nil)
+        // The handler goes in first so there is no window in which the native
+        // library could fire the trampoline and find nothing to call. If the
+        // native registration then fails, the previous handler is restored:
+        // the caller saw an error, so nothing about the callback should have
+        // changed.
+        let previous = LicenseCallbackBox.shared.setHandler(callback)
+        do {
+            try Native.check(CLexActivator.SetLicenseCallback(licenseCallbackTrampoline))
+        } catch {
+            LicenseCallbackBox.shared.setHandler(previous)
+            throw error
+        }
     }
 }

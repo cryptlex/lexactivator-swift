@@ -49,15 +49,15 @@ final class LicenseCallbackTests: XCTestCase {
         }
     }
 
-    func testRemovingTheHandlerStopsDelivery() {
+    func testClearingTheHandlerStopsDelivery() {
         var received = 0
         LicenseCallbackBox.shared.setHandler { _ in received += 1 }
         licenseCallbackTrampoline(code: 0)
         XCTAssertEqual(received, 1)
 
-        LexActivator.removeLicenseCallback()
+        LicenseCallbackBox.shared.setHandler(nil)
         licenseCallbackTrampoline(code: 0)
-        XCTAssertEqual(received, 1, "the handler kept receiving after removal")
+        XCTAssertEqual(received, 1, "the handler kept receiving after being cleared")
     }
 
     /// A callback arriving on a library thread while the app replaces the
